@@ -8,10 +8,7 @@ from sklearn.metrics import accuracy_score
 
 def sigmoid (x): return 1/(1 + np.exp(-x))      # activation function
 def sigmoid_(x): return x * (1 - x)             # derivative of sigmoid
-def sofmax (x):
-    exps = [np.exp(i) for i in x]
-    sum_of_exps = sum(exps)
-    return [j/sum_of_exps for j in exps]
+def softmax(x): return np.exp(x) / sum(np.exp(x))
 def scale_data(df):
     return (df - df.mean()) / df.std()
 
@@ -71,10 +68,11 @@ X_train_scale = scale_data(X_train)
 # Network
 epochs = 1000    # Number of iterations
 inputLayerSize, hiddenLayerSize, outputLayerSize = X_train.shape[1] + 1, X_train.shape[1] + 1, 1
-L = 0.1    # learning rate
+L = 0.03    # learning rate
 network = Network()
 network.add_layer(inputLayerSize, 'input')
 network.add_layer(hiddenLayerSize, 'hidden_1')
+network.add_layer(hiddenLayerSize, 'hidden_2')
 network.add_layer(outputLayerSize, 'output')
 
 # Initialize Input layer
@@ -87,40 +85,48 @@ for index, neuron in enumerate(network.layers[0].neurons):
 network.layers[0].add_outputs()
 network.layers[1].add_weights()
 network.layers[2].add_weights()
-# A checker PRQ
-network.layers[2].weights = np.reshape(network.layers[2].weights, (X_train.shape[1] + 1, 1))
+network.layers[3].add_weights()
+### outlayer ###
+network.layers[3].weights = np.reshape(network.layers[3].weights, (X_train.shape[1] + 1, 1))
+
 for i in range(epochs):
-    z_h = np.dot(X, network.layers[1].weights)
-    network.layers[1].outputs = sigmoid(z_h)
-    # network.layers[1].outputs = sigmoid(np.dot(X, network.layers[1].weights)) # hidden layer results
-    # network.layers[2].outputs = sigmoid(np.dot(network.layers[1].outputs, network.layers[2].weights))   # output layer, no activation
-    z_o = np.dot(network.layers[1].outputs, network.layers[2].weights)
-    network.layers[2].outputs = sigmoid(z_o)
-    #    # Calculate the error
-    E = Y - network.layers[2].outputs                                              # how much we missed (error)
+    # forward propagation
+    ### Hidden layer 1 ###
+    z_h_1 = np.dot(X, network.layers[1].weights)
+    network.layers[1].outputs = sigmoid(z_h_1)
+    ### Hidden layer 2 ###
+    z_h_2 = np.dot(X, network.layers[2].weights)
+    network.layers[2].outputs = sigmoid(z_h_2)
+    ###output###
+    z_o = np.dot(network.layers[2].outputs, network.layers[3].weights)
+    network.layers[3].outputs = sigmoid(z_o)
+    # Calculate the error
+    E = Y - network.layers[3].outputs                                           # how much we missed (error)
     err = ((1 / 2) * (np.power((E), 2)))
-    dZ = E * L                                                                              # delta Z
     # Backpropagation
     ## Output layer
-    delta_z_o = sigmoid_(network.layers[2].outputs)
+    delta_z_o = sigmoid_(network.layers[3].outputs)
+    delta_w13 = network.layers[2].outputs
+    delta_output_layer = np.dot(delta_w13.T,(E * delta_z_o))
+    ## Hidden layer 2
+    delta_a_h_2 = np.dot(E * delta_z_o, network.layers[3].weights.T)
+    delta_z_h_2 = sigmoid_(network.layers[2].outputs)
     delta_w12 = network.layers[1].outputs
-    delta_output_layer = np.dot(delta_w12.T,(E * delta_z_o))
+    delta_hidden_layer_2 = np.dot(delta_w12.T, delta_a_h_2 * delta_z_h_2)
+    ## Hidden layer 1
+    delta_a_h_1 = np.dot(E * delta_z_h_2, network.layers[2].weights.T)
+    delta_z_h_1 = sigmoid_(network.layers[1].outputs)
+    delta_w11 = X
+    delta_hidden_layer_1 = np.dot(delta_w11.T, delta_a_h_1 * delta_z_h_1)
 
-    ## Hidden layer
-    delta_a_h = np.dot(E * delta_z_o, network.layers[2].weights.T)
-    delta_z_h = sigmoid_(network.layers[1].outputs)
-    delta_w01 = X
-    delta_hidden_layer = np.dot(delta_w01.T, delta_a_h * delta_z_h)
-
-    network.layers[1].weights = network.layers[1].weights + L * delta_hidden_layer
-    network.layers[2].weights =  network.layers[2].weights + L * delta_output_layer
-    #network.layers[2].weights +=  network.layers[1].outputs.T.dot(dZ)                          # update output layer weights
-    #dH = dZ.dot(network.layers[2].weights.T) * sigmoid_(network.layers[1].outputs)             # delta H
-    #network.layers[1].weights += X.T.dot(dH)                          # update hidden layer weights
+    network.layers[1].weights = network.layers[1].weights + L * delta_hidden_layer_1
+    network.layers[2].weights = network.layers[2].weights + L * delta_hidden_layer_2
+    network.layers[3].weights =  network.layers[3].weights + L * delta_output_layer
     print("epoch {}/{} - loss: {} - val_loss: {}".format(i + 1, epochs, err.sum(), 0))
-#print(network.layers[2].outputs)
+
 Y_predict = []
-for x in network.layers[2].outputs:
+# print(list(network.layers[3].outputs))
+for x in network.layers[3].outputs:
     if x >= 0.5:
         Y_predict.append(1)
     else:
@@ -128,7 +134,8 @@ for x in network.layers[2].outputs:
 Y_predict = np.array(Y_predict)
 weights_dic = {}
 weights_dic['hidden_1'] = network.layers[1].weights
-weights_dic['output'] = network.layers[2].weights
+weights_dic['hidden_2'] = network.layers[2].weights
+weights_dic['output'] = network.layers[3].weights
 weights_dic['mean'] = X_train_0.mean().tolist()
 weights_dic['std'] = X_train_0.std().tolist()
 np.save('weights.npy', weights_dic)
