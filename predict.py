@@ -2,6 +2,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
+from tools import predict
 
 def standardize(vector, mean, std):
     return (vector - mean) / std
@@ -9,40 +10,33 @@ def sigmoid (x): return 1/(1 + np.exp(-x))      # activation function
 def softmax(X):
     expX = np.exp(X)
     return expX / expX.sum(axis=1, keepdims=True)
-def predict(X):
-    Y_predict = []
-    for x in X:
-        if x[0] > x[1]:
-            Y_predict.append(1)
-        else:
-            Y_predict.append(0)
-    return (np.array(Y_predict))
 
 np.seterr(all = 'ignore')
 f = np.load('weights.npy', allow_pickle=True)
 weights_hidden_1 = f.item().get('hidden_1_w')
 weights_hidden_2 = f.item().get('hidden_2_w')
-weights_output = f.item().get('output_w')
+weights_outputs = f.item().get('output_w')
 bias_hidden_1 = f.item().get('hidden_1_b')
 bias_hidden_2 = f.item().get('hidden_2_b')
 bias_output = f.item().get('output_b')
 mean = f.item().get('mean')
 std = f.item().get('std')
 df = pd.read_csv('test.csv')
-Y = df['column_1'].map({'M': 1, 'B': 0}).values
-df = df.drop('column_1', axis=1)
-for i in range(32):
+j = 0
+for i in range(30):
     if i != 1:
-        df['column_' + str(i)] = standardize(df['column_' + str(i)], mean[i], std[i])
+        df['column_' + str(i)] = standardize(df['column_' + str(i)], mean[j], std[j])
+        j += 1
+
+Y_M = df['column_1'].map({'M': 1, 'B': 0}).values
+Y_B = df['column_1'].map({'M': 0, 'B': 1}).values
+Y_M = np.reshape(Y_M, (Y_B.shape[0], 1))
+Y_B = np.reshape(Y_B, (Y_B.shape[0], 1))
+Y = np.concatenate((Y_M, Y_B), axis=1)
+df = df.drop('column_1', axis=1)
 X = df.values
-### hidden layer 1 ###
-z_h_1 = np.dot(X, weights_hidden_1.T) + bias_hidden_1
-hidden_outputs_1 = sigmoid(z_h_1)
-### hidden layer 2 ###
-z_h_2 = np.dot(hidden_outputs_1, weights_hidden_2.T) + bias_hidden_2
-hidden_outputs_2 = sigmoid(z_h_2)
-### output layer ###
-z_o = np.dot(hidden_outputs_2, weights_output.T) + bias_output
-final_outputs = softmax(z_o)
-Y_predict = predict(final_outputs)
-print('{:.2f}'.format(accuracy_score(Y, Y_predict)))
+Y_predict = predict(X, weights_hidden_1, bias_hidden_1, weights_hidden_2, bias_hidden_2, weights_outputs, bias_output)
+### Cross entropy
+cross = -np.mean(Y[:, 0] * np.log(Y_predict.T + 1e-9))
+print('Accuracy test = {:.2f}'.format(accuracy_score(Y[:, 0], Y_predict)))
+print('Cross Entropy value = {:.5f}'.format(cross))

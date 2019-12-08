@@ -6,6 +6,7 @@ import numpy as np
 from math import log
 from sklearn.metrics import accuracy_score
 from sklearn.utils import shuffle
+from tools import predict, final_outputs, sigmoid, softmax
 
 def crossEntropyLoss(Y_predict, Y_init, margin=1e-20):
     np.clip(Y_predict, margin, 1 - margin, out=Y_predict)
@@ -14,26 +15,17 @@ def crossEntropyLoss(Y_predict, Y_init, margin=1e-20):
     product = np.multiply(Y_init, log_pred)
     return (-product.sum(axis=0)).mean()
 
-def sigmoid (x): return (1/(1 + np.exp(-x)))      # activation function
-def sigmoid_(x): return (x * (1 - x))             # derivative of sigmoid
-def softmax(Z):
-    expZ = np.exp(Z)
-    result = []
-    for z in expZ:
-        d = []
-        d.append(z[0] / (z[0] + z[1]))
-        d.append(z[1] / (z[0] + z[1]))
-        result.append(d)
-    return np.array(result)
+def standardize(vector, mean, std):
+    return (vector - mean) / std
 
-def predict(X):
-    Y_predict = []
-    for x in X:
-        if x[0] > x[1]:
-            Y_predict.append(1)
-        else:
-            Y_predict.append(0)
-    return (np.array(Y_predict))
+def sigmoid_(x): return (x * (1 - x))
+
+def mean_square_error(Y, Y_predict):
+    loss = 0
+    for index, el in Y:
+        loss += (el - Y_predict[index]) ** 2
+    return loss / Y_predict.shape[0]
+
 
 def scale_data(df):
     return (df - df.mean()) / df.std()
@@ -91,30 +83,43 @@ df['M'] = df['column_1'].map({'M': 1, 'B': 0})
 df['B'] = df['column_1'].map({'M': 0, 'B': 1})
 # split dataset
 target = df['M']
-# create training and testing vars
-X_train_0, X_test, y_train, y_test = train_test_split(df, target, test_size=0.2)
-mean, std = X_train_0.mean().tolist(), X_train_0.std().tolist()
-X_train_0 = X_train_0.drop('column_1', axis=1)
-X_train = X_train_0.drop('M', axis=1)
+
+#splitting data
+X_train_0, X_test, y_train, y_test = train_test_split(df, target, test_size=0.2, random_state=1)
+X_train_0, X_val, y_train, y_val = train_test_split(X_train_0, y_train, test_size=0.2, random_state=1)
+## test data
 X_test = X_test.drop('B', axis=1)
 X_test = X_test.drop('M', axis=1)
 X_test.to_csv('test.csv', index=False)
+## train data
+X_train = X_train_0.drop(['column_1','M'], axis=1)
 Y_M = np.reshape(y_train.values, (X_train.shape[0], 1))
 Y_B = np.reshape(X_train.B.values, (X_train.shape[0], 1))
 X_train = X_train.drop('B', axis=1)
+mean, std = X_train.mean().tolist(), X_train.std().tolist()
 X_train_scale = scale_data(X_train)
+X_train = np.reshape(X_train_scale.values, (X_train.shape[0], X_train.shape[1]))
+Y_train = np.concatenate((Y_M, Y_B), axis=1)
+#### Validation data
+X_val = X_val.drop(['column_1', 'M'], axis=1)
+Y_M = np.reshape(y_val.values, (X_val.shape[0], 1))
+Y_B = np.reshape(X_val.B.values, (X_val.shape[0], 1))
+X_val = X_val.drop('B', axis=1)
+X_val_scale = standardize(X_val, mean, std)
+X_val = np.reshape(X_val_scale.values, (X_val.shape[0], X_val.shape[1]))
+Y_val = np.concatenate((Y_M, Y_B), axis=1)
+#### Shuffle
+X, Y = shuffle(X_train, Y_train, random_state=np.random.RandomState())
+X_val, Y_val = shuffle(X_val, Y_val, random_state=np.random.RandomState())
 # Network
-epochs = 100    # Number of iterations
+epochs = 2000    # Number of iterations
 inputLayerSize, hiddenLayerSize_1, hiddenLayerSize_2, outputLayerSize = X_train.shape[1], 16, 8,2
-L = 0.01  # learning rate
+L = 0.03  # learning rate
 network = Network()
 network.add_layer(inputLayerSize, 'input')
 network.add_layer(hiddenLayerSize_1, 'hidden_1')
 network.add_layer(hiddenLayerSize_2, 'hidden_2')
 network.add_layer(outputLayerSize, 'output')
-# Initialize Input layer
-X = np.reshape(X_train_scale.values, (X_train.shape[0], X_train.shape[1]))
-Y = np.concatenate((Y_M, Y_B), axis=1)
 for index, neuron in enumerate(network.layers[0].neurons):
     neuron.output = X[index]
 network.layers[0].add_outputs()
@@ -124,9 +129,6 @@ network.layers[3].add_weights()
 network.layers[1].add_bias()
 network.layers[2].add_bias()
 network.layers[3].add_bias()
-#### Shuffle
-X, Y = shuffle(X, Y, random_state=np.random.RandomState())
-Y_init = Y[:, [0]]
 for i in range(epochs):
     ############# feedforward
     ### Hidden layer 1 ###
@@ -167,15 +169,17 @@ for i in range(epochs):
     network.layers[2].bias -= L * db_h_2
     network.layers[3].bias -= L * db_o
     #### Loss function
-    Y_predict = predict(network.layers[3].outputs)
-    ### Cross entropy
-    loss = -np.mean(Y_init * np.log(Y_predict.T + 1e-9))
-    print("epoch {}/{} - loss: {} - val_loss: {}".format(i + 1, epochs, loss, 0))
+    Y_predict = final_outputs(network.layers[3].outputs)
+    loss = mean_square_error(Y, Y_predict)
+    Y_val_predict = predict(X_val, network.layers[1].weights, network.layers[1].bias, network.layers[2].weights, network.layers[2].bias, network.layers[3].weights, network.layers[3].bias)
+    val_loss = mean_square_error(Y_val, Y_val_predict)
+    print("epoch {}/{} - loss: {:.5f} - val_loss: {:.5f}".format(i + 1, epochs, loss, val_loss))
 
 # print(Y_predict)
 # accuracy = (Y_init == Y_predict).mean()
 # print(accuracy * 100)
-print('{:.2f}'.format(accuracy_score(Y_init, Y_predict)))
+print('Accuracy training = {:.2f}'.format(accuracy_score(Y[:, 0], Y_predict)))
+print('Accuracy validation = {:.2f}'.format(accuracy_score(Y_val[:, 0], Y_val_predict)))
 weights_dic = {}
 weights_dic['hidden_1_w'] = network.layers[1].weights
 weights_dic['hidden_2_w'] = network.layers[2].weights
