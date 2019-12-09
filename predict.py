@@ -46,7 +46,7 @@ try:
     df = df.drop('column_1', axis=1)
     X = df.values
     Y_predict = predict(X, weights_hidden_1, bias_hidden_1, weights_hidden_2, bias_hidden_2, weights_outputs, bias_output)
-    print('Accuracy test = {:.2f}'.format(accuracy_score(Y[:, 0], Y_predict)))
+    print('Accuracy test = {:.3f}'.format(accuracy_score(Y[:, 0], Y_predict)))
     ### Cross entropy
     cross = -np.sum(Y[:, 0] * np.log(Y_predict.T + 1e-9) + (1 - Y[:, 0]) * np.log(1 - Y_predict.T + 1e-9)) / Y_predict.shape[0]
     print('Cross Entropy value = {:.5f}'.format(cross))

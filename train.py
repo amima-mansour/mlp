@@ -3,6 +3,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import numpy as np
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
 from sklearn.utils import shuffle
 from  matplotlib import pyplot as plt
 from tools import predict, final_outputs, sigmoid, softmax
@@ -117,7 +119,8 @@ try:
     network.layers[1].add_bias()
     network.layers[2].add_bias()
     network.layers[3].add_bias()
-    val_loss, loss = [], []
+    ns_probs = [0 for _ in range(len(Y[:, 0]))]
+    val_loss, loss, lr_val_auc, lr_auc = [], [], [], []
     for i in range(epochs):
         ############# feedforward
         ### Hidden layer 1 ###
@@ -162,15 +165,37 @@ try:
         Y_val_predict = predict(X_val, network.layers[1].weights, network.layers[1].bias, network.layers[2].weights,
             network.layers[2].bias, network.layers[3].weights, network.layers[3].bias)
         val_loss.append(mean_square_error(Y_val[:, 0], Y_val_predict))
-        print("epoch {}/{} - loss: {:.10f} - val_loss: {:.10f}".format(i + 1, epochs, loss[i], val_loss[i]))
+        # calculate scores
+        lr_auc.append(roc_auc_score(Y[:, 0], Y_predict))
+        lr_val_auc.append(roc_auc_score(Y_val[:, 0], Y_val_predict))
+        print("epoch {}/{} - loss: {:.10f} - val_loss: {:.10f} - roc {:.7f} roc_val {:.7f}".format(i + 1, epochs, loss[i], val_loss[i], lr_auc[i], lr_val_auc[i]))
+           # calculate roc curves
+    ns_fpr, ns_tpr, _ = roc_curve(Y[:, 0], ns_probs)
+    lr_fpr, lr_tpr, _ = roc_curve(Y[:, 0], Y_predict)
+    lr_val_fpr, lr_val_tpr, _ = roc_curve(Y_val[:, 0], Y_val_predict)
+    # plot the roc curve for the model
+    plt.figure(2)
+    # axis labels
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.plot(lr_fpr, lr_tpr, 'b--', label='Roc-Curve')
+    plt.plot(lr_val_fpr, lr_val_tpr, 'r--', label='Roc-Curve-Validation')
+    plt.legend()
+    # plot learning curve
+    plt.figure(1)
     plt.plot(range(1, epochs + 1), loss, 'g--', label='loss')
     plt.plot(range(1, epochs + 1), val_loss, 'r--', label='val_loss')
     plt.xlabel('epochs')
     plt.ylabel('loss value')
     plt.legend()
     plt.show()
-    print('Accuracy training = {:.2f}'.format(accuracy_score(Y[:, 0], Y_predict)))
-    print('Accuracy validation = {:.2f}'.format(accuracy_score(Y_val[:, 0], Y_val_predict)))
+    print('Accuracy training = {:.3f}'.format(accuracy_score(Y[:, 0], Y_predict)))
+    print('Accuracy validation = {:.3f}'.format(accuracy_score(Y_val[:, 0], Y_val_predict)))
+    f = open("save_metrics.txt", "a")
+    f.write("######## Metrics of training ########\n{}\n".format(loss))
+    f.write("######## Metrics of validation ########\n{}\n".format(val_loss))
+    f.write("######## Accuracy ########\nAccuracy training = {:.3f}\nAccuracy validation = {:.3f}\n".format(accuracy_score(Y[:, 0], Y_predict), accuracy_score(Y_val[:, 0], Y_val_predict)))
+    f.close()
     weights_dic = {}
     weights_dic['hidden_1_w'] = network.layers[1].weights
     weights_dic['hidden_2_w'] = network.layers[2].weights
