@@ -78,12 +78,7 @@ try:
     df['B'] = df['column_1'].map({'M': 0, 'B': 1})
     # split dataset
     target = df['M']
-    X_train_0, X_test, y_train, y_test = train_test_split(df, target, test_size=0.2, random_state=1)
-    X_train_0, X_val, y_train, y_val = train_test_split(X_train_0, y_train, test_size=0.2, random_state=1)
-    ## test data
-    X_test = X_test.drop('B', axis=1)
-    X_test = X_test.drop('M', axis=1)
-    X_test.to_csv('test.csv', index=False)
+    X_train_0, X_val, y_train, y_val = train_test_split(df, target, test_size=0.3, random_state=1)
     ## train data
     X_train = X_train_0.drop(['column_1','M'], axis=1)
     Y_M = np.reshape(y_train.values, (X_train.shape[0], 1))
@@ -105,7 +100,7 @@ try:
     X, Y = shuffle(X_train, Y_train, random_state=np.random.RandomState())
     X_val, Y_val = shuffle(X_val, Y_val, random_state=np.random.RandomState())
     # Network
-    epochs = 250    # Number of iterations
+    epochs = 100    # Number of iterations
     inputLayerSize, hiddenLayerSize_1, hiddenLayerSize_2, outputLayerSize = X_train.shape[1], 16, 8,2
     L = 0.3  # learning rate
     network = Network()

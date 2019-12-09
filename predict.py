@@ -19,6 +19,9 @@ parser.add_argument("--dataset", help="Set Dataset to predict")
 parser.add_argument("--weights", help="Set weights file")
 args = parser.parse_args()
 np.seterr(all = 'ignore')
+columns = []
+for i in range(32):
+    columns.append('column_' + str(i))
 try:
     f = np.load(args.weights, allow_pickle=True)
     weights_hidden_1 = f.item().get('hidden_1_w')
@@ -29,7 +32,7 @@ try:
     bias_output = f.item().get('output_b')
     mean = f.item().get('mean')
     std = f.item().get('std')
-    df = pd.read_csv(args.dataset)
+    df = pd.read_csv(args.dataset, names=columns)
     j = 0
     for i in range(30):
         if i != 1:
