@@ -1,19 +1,11 @@
-from random import random 
+from random import random
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from matplotlib import pyplot as plt
 import numpy as np
-from math import log
 from sklearn.metrics import accuracy_score
 from sklearn.utils import shuffle
+from  matplotlib import pyplot as plt
 from tools import predict, final_outputs, sigmoid, softmax
-
-def crossEntropyLoss(Y_predict, Y_init, margin=1e-20):
-    np.clip(Y_predict, margin, 1 - margin, out=Y_predict)
-    log_pred = np.vectorize(log)(Y_predict)
-    log_pred_comp = np.vectorize(log)(1 - Y_predict)
-    product = np.multiply(Y_init, log_pred)
-    return (-product.sum(axis=0)).mean()
 
 def standardize(vector, mean, std):
     return (vector - mean) / std
@@ -21,9 +13,7 @@ def standardize(vector, mean, std):
 def sigmoid_(x): return (x * (1 - x))
 
 def mean_square_error(Y, Y_predict):
-    loss = 0
-    for index, el in Y:
-        loss += (el - Y_predict[index]) ** 2
+    loss = np.sum((Y - Y_predict) ** 2)
     return loss / Y_predict.shape[0]
 
 
@@ -112,9 +102,9 @@ Y_val = np.concatenate((Y_M, Y_B), axis=1)
 X, Y = shuffle(X_train, Y_train, random_state=np.random.RandomState())
 X_val, Y_val = shuffle(X_val, Y_val, random_state=np.random.RandomState())
 # Network
-epochs = 2000    # Number of iterations
+epochs = 250    # Number of iterations
 inputLayerSize, hiddenLayerSize_1, hiddenLayerSize_2, outputLayerSize = X_train.shape[1], 16, 8,2
-L = 0.03  # learning rate
+L = 0.3  # learning rate
 network = Network()
 network.add_layer(inputLayerSize, 'input')
 network.add_layer(hiddenLayerSize_1, 'hidden_1')
@@ -129,6 +119,7 @@ network.layers[3].add_weights()
 network.layers[1].add_bias()
 network.layers[2].add_bias()
 network.layers[3].add_bias()
+val_loss, loss = [], []
 for i in range(epochs):
     ############# feedforward
     ### Hidden layer 1 ###
@@ -170,14 +161,18 @@ for i in range(epochs):
     network.layers[3].bias -= L * db_o
     #### Loss function
     Y_predict = final_outputs(network.layers[3].outputs)
-    loss = mean_square_error(Y, Y_predict)
+    loss.append(mean_square_error(Y[:, 0], Y_predict))
     Y_val_predict = predict(X_val, network.layers[1].weights, network.layers[1].bias, network.layers[2].weights, network.layers[2].bias, network.layers[3].weights, network.layers[3].bias)
-    val_loss = mean_square_error(Y_val, Y_val_predict)
-    print("epoch {}/{} - loss: {:.5f} - val_loss: {:.5f}".format(i + 1, epochs, loss, val_loss))
+    val_loss.append(mean_square_error(Y_val[:, 0], Y_val_predict))
+    print("epoch {}/{} - loss: {:.10f} - val_loss: {:.10f}".format(i + 1, epochs, loss[i], val_loss[i]))
 
-# print(Y_predict)
-# accuracy = (Y_init == Y_predict).mean()
-# print(accuracy * 100)
+plt.plot(range(1, epochs + 1), loss, 'g--', label='loss')
+plt.plot(range(1, epochs + 1), val_loss, 'r--', label='val_loss')
+plt.xlabel('epochs')
+plt.ylabel('loss value')
+plt.legend()
+plt.show()
+
 print('Accuracy training = {:.2f}'.format(accuracy_score(Y[:, 0], Y_predict)))
 print('Accuracy validation = {:.2f}'.format(accuracy_score(Y_val[:, 0], Y_val_predict)))
 weights_dic = {}

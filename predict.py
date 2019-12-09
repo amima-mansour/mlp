@@ -2,11 +2,12 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
-from tools import predict
+from tools import predict, sigmoid
+from math import log
 
 def standardize(vector, mean, std):
     return (vector - mean) / std
-def sigmoid (x): return 1/(1 + np.exp(-x))      # activation function
+
 def softmax(X):
     expX = np.exp(X)
     return expX / expX.sum(axis=1, keepdims=True)
@@ -36,7 +37,8 @@ Y = np.concatenate((Y_M, Y_B), axis=1)
 df = df.drop('column_1', axis=1)
 X = df.values
 Y_predict = predict(X, weights_hidden_1, bias_hidden_1, weights_hidden_2, bias_hidden_2, weights_outputs, bias_output)
-### Cross entropy
-cross = -np.mean(Y[:, 0] * np.log(Y_predict.T + 1e-9))
 print('Accuracy test = {:.2f}'.format(accuracy_score(Y[:, 0], Y_predict)))
+### Cross entropy
+cross = -np.sum(Y[:, 0] * np.log(Y_predict.T + 1e-9) + (1 - Y[:, 0]) * np.log(1 - Y_predict.T + 1e-9)) / Y_predict.shape[0]
+# cross = crossEntropyLoss(Y_predict, Y[:, 0])
 print('Cross Entropy value = {:.5f}'.format(cross))
