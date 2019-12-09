@@ -169,7 +169,7 @@ try:
         lr_auc.append(roc_auc_score(Y[:, 0], Y_predict))
         lr_val_auc.append(roc_auc_score(Y_val[:, 0], Y_val_predict))
         print("epoch {}/{} - loss: {:.10f} - val_loss: {:.10f} - roc {:.7f} roc_val {:.7f}".format(i + 1, epochs, loss[i], val_loss[i], lr_auc[i], lr_val_auc[i]))
-           # calculate roc curves
+    # calculate roc curves
     ns_fpr, ns_tpr, _ = roc_curve(Y[:, 0], ns_probs)
     lr_fpr, lr_tpr, _ = roc_curve(Y[:, 0], Y_predict)
     lr_val_fpr, lr_val_tpr, _ = roc_curve(Y_val[:, 0], Y_val_predict)

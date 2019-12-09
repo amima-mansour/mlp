@@ -2,6 +2,8 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
 from tools import predict, sigmoid
 from math import log
 import sys
@@ -49,6 +51,10 @@ try:
     print('Accuracy test = {:.3f}'.format(accuracy_score(Y[:, 0], Y_predict)))
     ### Cross entropy
     cross = -np.sum(Y[:, 0] * np.log(Y_predict.T + 1e-9) + (1 - Y[:, 0]) * np.log(1 - Y_predict.T + 1e-9)) / Y_predict.shape[0]
-    print('Cross Entropy value = {:.5f}'.format(cross))
+    print('Cross Entropy value = {:.3f}'.format(cross))
+    # Matrix confusion
+    results = confusion_matrix(Y[:, 0], Y_predict)
+    print("Matrix confusion Elements\nTP = {} TN = {} FP = {} FN = {}".format(results[0][0], results[1][1], results[1][0], results[0][1]))
+    print("F1-score = {:.3f}".format(f1_score(Y[:, 0], Y_predict)))
 except:
     print("Error dataset to predict or weights")
